@@ -7,36 +7,32 @@ import matplotlib.pyplot as plt
 import warnings
 warnings.filterwarnings('ignore')
 
-# 设置中文字体（用于 SHAP 图的中文标签）
-plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS']
-plt.rcParams['axes.unicode_minus'] = False
-
-# ==================== 1. 基础配置 ====================
-# 加载训练好的 CatBoost 模型（确保 model.pkl 与脚本同目录）
+# ==================== 1. Basic configuration ====================
+# Load the trained CatBoost model (ensure model.pkl is in the same directory)
 model = joblib.load('model.pkl')
 
-# 加载背景数据（用于 SHAP 解释器，确保 datacatboost.csv 与脚本同目录）
+# Load background data (used by the SHAP explainer; ensure datacatboost.csv is in the same directory)
 X_test = pd.read_csv('datacatboost.csv')
 
-# 定义特征名称（替换为业务相关列名，与模型输入顺序一致）
+# Define feature names (must match the model input order)
 feature_names = [
     "d3_a_ado2", "d3_lac", "d3_sofa", "peep"
 ]
 
-# 中文标签映射
+# Display labels for UI and SHAP plots
 feature_labels = {
-    "d3_a_ado2": "D3 A-aDO2（肺泡-动脉氧分压差，mmHg）",
-    "d3_lac": "D3 LAC（乳酸，mmol/L）",
-    "d3_sofa": "D3 SOFA 评分",
-    "peep": "PEEP（呼气末正压，cmH2O）"
+    "d3_a_ado2": "D3 A-aDO2 (mmHg)",
+    "d3_lac": "D3 LAC (mmol/L)",
+    "d3_sofa": "D3 SOFA score",
+    "peep": "PEEP (cmH2O)"
 }
 
-# ==================== 2. Streamlit 页面配置 ====================
-st.set_page_config(page_title="ARDS 28天死亡风险预测器", layout="wide")
-st.title("🫁 ARDS 患者 28 天死亡风险预测器")
-st.markdown("### 请填写患者第 3 天指标，点击预测获取 28 天死亡风险评估结果")
+# ==================== 2. Streamlit page configuration ====================
+st.set_page_config(page_title="ARDS Mortality Risk Predictor", layout="wide")
+st.title("ARDS 28-Day Mortality Risk Predictor")
+st.markdown("### Enter the patient's Day-3 metrics below and click Predict")
 
-# ==================== 3. 特征输入组件 ====================
+# ==================== 3. Feature input components ====================
 d3_a_ado2 = st.number_input(
     feature_labels["d3_a_ado2"],
     min_value=150.0,
@@ -69,51 +65,51 @@ peep = st.number_input(
     step=1
 )
 
-# ==================== 4. 数据处理与预测 ====================
-# 整合用户输入特征（顺序必须与 feature_names 一致）
+# ==================== 4. Data processing and prediction ====================
+# Combine user inputs (order must match feature_names)
 feature_values = [d3_a_ado2, d3_lac, d3_sofa, peep]
 
-# 转换为 DataFrame 格式（自带列名）
+# Convert to DataFrame (keeps column names)
 features_df = pd.DataFrame([feature_values], columns=feature_names)
 
-# 预测按钮逻辑
-if st.button("预测", type="primary"):
-    # 模型预测
+# Prediction button logic
+if st.button("Predict", type="primary"):
+    # Model prediction
     predicted_class = int(model.predict(features_df)[0])
     predicted_proba = model.predict_proba(features_df)[0]
 
-    # 显示预测结果（中文适配）
-    st.subheader("📊 预测结果")
-    risk_label = "高风险" if predicted_class == 1 else "低风险"
-    st.write(f"**风险等级：{predicted_class} ({risk_label})**")
-    st.write(f"**风险概率：** 存活概率 {predicted_proba[0]:.2%} | 死亡概率 {predicted_proba[1]:.2%}")
+    # Display prediction results
+    st.subheader("Prediction Results")
+    risk_label = "High risk" if predicted_class == 1 else "Low risk"
+    st.write(f"**Risk class: {predicted_class} ({risk_label})**")
+    st.write(f"**Probability:** Survival {predicted_proba[0]:.2%} | Mortality {predicted_proba[1]:.2%}")
 
-    # 生成个性化建议（中文）
-    st.subheader("💡 临床提示")
-    death_probability = predicted_proba[1] * 100
+    # Clinical suggestion
+    st.subheader("Clinical Note")
+    mortality_probability = predicted_proba[1] * 100
     if predicted_class == 1:
         advice = (
-            f"模型预测该患者 28 天死亡风险为高风险（概率 {death_probability:.1f}%）。\n"
-            "建议密切监测血流动力学、氧合及器官功能，及时评估是否需要升级呼吸支持或转入 ICU。\n"
-            "同时请结合临床实际，动态复查 A-aDO2、乳酸、SOFA 评分等指标。"
+            f"The model predicts a high 28-day mortality risk ({mortality_probability:.1f}%). "
+            "Close monitoring of hemodynamics, oxygenation, and organ function is recommended; "
+            "consider escalation of respiratory support or ICU transfer as clinically indicated."
         )
     else:
         advice = (
-            f"模型预测该患者 28 天死亡风险相对较低（死亡概率 {death_probability:.1f}%）。\n"
-            "请继续当前治疗并密切观察病情变化，定期复评相关指标。"
+            f"The model predicts a relatively low 28-day mortality risk ({mortality_probability:.1f}%). "
+            "Continue current management and reassess relevant metrics dynamically."
         )
     st.info(advice)
 
-    # ==================== 5. SHAP 解释 ====================
-    st.subheader("🔍 SHAP 特征贡献解释")
+    # ==================== 5. SHAP explanation ====================
+    st.subheader("SHAP Feature Contribution")
 
-    # 构建 TreeExplainer（概率尺度，更易于临床理解）
+    # Build TreeExplainer (probability scale for clinical interpretability)
     explainer = shap.TreeExplainer(model, data=X_test[feature_names], model_output='probability')
 
-    # 计算当前样本的 SHAP 值
+    # Compute SHAP values for the current sample
     shap_values = explainer(features_df)
 
-    # 构建 Explanation 对象（用于瀑布图）
+    # Build Explanation object for the waterfall plot
     exp = shap.Explanation(
         values=shap_values.values[0],
         base_values=shap_values.base_values[0],
@@ -121,10 +117,10 @@ if st.button("预测", type="primary"):
         feature_names=[feature_labels[f] for f in feature_names]
     )
 
-    # 绘制瀑布图
+    # Draw waterfall plot
     plt.figure(figsize=(10, 6))
     shap.plots.waterfall(exp, max_display=10, show=False)
 
-    # 渲染到 Streamlit 页面
+    # Render in Streamlit
     st.pyplot(plt.gcf())
     plt.close()
