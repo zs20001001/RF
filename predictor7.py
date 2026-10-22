@@ -119,6 +119,30 @@ if st.button("Predict", type="primary"):
 
     # Draw waterfall plot
     plt.figure(figsize=(10, 6))
+    import traceback
+import streamlit as st
+
+# ===== DEBUG BLOCK =====
+st.write("### DEBUG: type(exp) =", type(exp))
+st.write("repr(exp)[:800] =", repr(exp)[:800])
+
+for attr in ["base_values", "values", "data", "feature_names"]:
+    try:
+        v = getattr(exp, attr)
+        shape = getattr(v, "shape", "scalar/no-shape")
+        st.write(f"{attr}: type={type(v)}, shape={shape}")
+    except Exception as e:
+        st.write(f"{attr}: <no attribute or error: {e}>")
+
+# 主动捕获真实异常（绕过 Streamlit 的脱敏）
+try:
+    shap.plots.waterfall(exp, max_display=10, show=False)
+    st.pyplot()   # 或 st.pyplot(fig) 取决于你的版本
+except Exception as e:
+    st.error(f"REAL ERROR -> {type(e).__name__}: {e}")
+    st.code(traceback.format_exc())
+    raise
+# =======================
     shap.plots.waterfall(exp, max_display=10, show=False)
 
     # Render in Streamlit
