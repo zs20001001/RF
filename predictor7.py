@@ -9,7 +9,7 @@ warnings.filterwarnings('ignore')
 
 # ==================== 1. Basic configuration ====================
 # Load the trained CatBoost model (ensure model.pkl is in the same directory)
-model = joblib.load('model.pkl')
+model = joblib.load('random_forest_final_model.pkl')
 
 # Load background data (used by the SHAP explainer; ensure datacatboost.csv is in the same directory)
 X_test = pd.read_csv('datacatboost.csv')
