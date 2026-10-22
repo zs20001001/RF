@@ -8,8 +8,8 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # ==================== 1. Basic configuration ====================
-model = joblib.load('random_forest_final_model.pkl')
-X_test = pd.read_csv('datacatboost.csv')
+model = joblib.load('xgboost_final_model.pkl')
+X_test = pd.read_csv('dataxgboost.csv')
 
 feature_names = ["d3_a_ado2", "d3_lac", "d3_sofa", "peep"]
 feature_labels = {
